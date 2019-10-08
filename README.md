@@ -1,3 +1,10 @@
+Thomas' Changes
+===============
+
+I flattened the history of this project so that you can use GitHub to view
+the changes between the videos.
+
+
 # olcNES
 NES Emulator, and Tutorial Video Code
 
