@@ -1,3 +1,12 @@
+Thomas' Changes
+===============
+
+I flattened the history of this project so that you can use GitHub to view
+the changes between the videos. This branch renames the source file containing
+the main function so that you can see how that changed, too. I missed this
+before. My bad.
+
+
 # olcNES
 NES Emulator, and Tutorial Video Code
 
