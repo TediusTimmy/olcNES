@@ -1,5 +1,5 @@
 /*
-	olc::NES - Part #4 - Buses, Rams, Roms & Mappers
+	olc::NES - Part #5 - PPU Rendering - Foregrounds
 	"Thanks Dad for believing computers were gonna be a big deal..." - javidx9
 
 	License (OLC-3)
@@ -36,7 +36,7 @@
 	OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-	Relevant Video: https://youtu.be/-THeUXqR3zY
+	Relevant Video: https://youtu.be/cksywUTZxlY
 
 	Links
 	~~~~~
@@ -181,12 +181,12 @@ private:
 	{
 		Clear(olc::DARK_BLUE);
 
-		// Sneaky peek of controller input in next video! ;P
+		// Handle input for controller in port #1
 		nes.controller[0] = 0x00;
-		nes.controller[0] |= GetKey(olc::Key::X).bHeld ? 0x80 : 0x00;
-		nes.controller[0] |= GetKey(olc::Key::Z).bHeld ? 0x40 : 0x00;
-		nes.controller[0] |= GetKey(olc::Key::A).bHeld ? 0x20 : 0x00;
-		nes.controller[0] |= GetKey(olc::Key::S).bHeld ? 0x10 : 0x00;
+		nes.controller[0] |= GetKey(olc::Key::X).bHeld ? 0x80 : 0x00;     // A Button
+		nes.controller[0] |= GetKey(olc::Key::Z).bHeld ? 0x40 : 0x00;     // B Button
+		nes.controller[0] |= GetKey(olc::Key::A).bHeld ? 0x20 : 0x00;     // Select
+		nes.controller[0] |= GetKey(olc::Key::S).bHeld ? 0x10 : 0x00;     // Start
 		nes.controller[0] |= GetKey(olc::Key::UP).bHeld ? 0x08 : 0x00;
 		nes.controller[0] |= GetKey(olc::Key::DOWN).bHeld ? 0x04 : 0x00;
 		nes.controller[0] |= GetKey(olc::Key::LEFT).bHeld ? 0x02 : 0x00;
@@ -232,11 +232,18 @@ private:
 			}
 		}
 
-
-		
-
 		DrawCpu(516, 2);
-		DrawCode(516, 72, 26);
+		//DrawCode(516, 72, 26);
+
+		// Draw OAM Contents (first 26 out of 64) ======================================
+		for (int i = 0; i < 26; i++)
+		{
+			std::string s = hex(i, 2) + ": (" + std::to_string(nes.ppu.pOAM[i * 4 + 3])
+				+ ", " + std::to_string(nes.ppu.pOAM[i * 4 + 0]) + ") "
+				+ "ID: " + hex(nes.ppu.pOAM[i * 4 + 1], 2) +
+				+" AT: " + hex(nes.ppu.pOAM[i * 4 + 2], 2);
+			DrawString(516, 72 + i * 10, s);
+		}
 
 		// Draw Palettes & Pattern Tables ==============================================
 		const int nSwatchSize = 6;
