@@ -61,6 +61,7 @@
 
 #include "olc6502.h"
 #include "olc2C02.h"
+#include "olc2A03.h"
 #include "Cartridge.h"
 
 class Bus
@@ -75,12 +76,26 @@ public: // Devices on Main Bus
 	olc6502 cpu;	
 	// The 2C02 Picture Processing Unit
 	olc2C02 ppu;
+	// The "2A03" Audio Processing Unit
+	olc2A03 apu;
 	// The Cartridge or "GamePak"
 	std::shared_ptr<Cartridge> cart;
 	// 2KB of RAM
 	uint8_t cpuRam[2048];
 	// Controllers
 	uint8_t controller[2];
+
+	// Synchronisation with system Audio
+public:
+	void SetSampleFrequency(uint32_t sample_rate);
+	double dAudioSample = 0.0;
+
+private:
+	double dAudioTime = 0.0;
+	double dAudioGlobalTime = 0.0;
+	double dAudioTimePerNESClock = 0.0;
+	double dAudioTimePerSystemSample = 0.0f;
+
 
 public: // Main Bus Read & Write
 	void    cpuWrite(uint16_t addr, uint8_t data);
@@ -119,7 +134,7 @@ public: // System Interface
 	void insertCartridge(const std::shared_ptr<Cartridge>& cartridge);
 	// Resets the system
 	void reset();
-	// Clocks the system - a single whole systme tick
-	void clock();
+	// Clocks the system - a single whole system tick
+	bool clock();
 };
 

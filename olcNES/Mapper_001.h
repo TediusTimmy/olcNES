@@ -1,5 +1,6 @@
+
 /*
-	olc::NES - Mapper Base Class (Abstract)
+	olc::NES - Mapper 1
 	"Thanks Dad for believing computers were gonna be a big deal..." - javidx9
 
 	License (OLC-3)
@@ -53,50 +54,39 @@
 	~~~~~~
 	David Barr, aka javidx9, ©OneLoneCoder 2019
 */
-
 #pragma once
-#include <cstdint>
 
-enum MIRROR
-{
-	HARDWARE,
-	HORIZONTAL,
-	VERTICAL,
-	ONESCREEN_LO,
-	ONESCREEN_HI,
-};
+#include "Mapper.h"
+#include <vector>
 
-class Mapper
+class Mapper_001 : public Mapper
 {
 public:
-	Mapper(uint8_t prgBanks, uint8_t chrBanks);
-	~Mapper();
+	Mapper_001(uint8_t prgBanks, uint8_t chrBanks);
+	~Mapper_001();
 
-public:
-	// Transform CPU bus address into PRG ROM offset
-	virtual bool cpuMapRead(uint16_t addr, uint32_t &mapped_addr, uint8_t &data)	 = 0;
-	virtual bool cpuMapWrite(uint16_t addr, uint32_t &mapped_addr, uint8_t data = 0)	 = 0;
-	
-	// Transform PPU bus address into CHR ROM offset
-	virtual bool ppuMapRead(uint16_t addr, uint32_t &mapped_addr)	 = 0;
-	virtual bool ppuMapWrite(uint16_t addr, uint32_t &mapped_addr)	 = 0;
+	bool cpuMapRead(uint16_t addr, uint32_t &mapped_addr, uint8_t &data) override;
+	bool cpuMapWrite(uint16_t addr, uint32_t &mapped_addr, uint8_t data = 0) override;
+	bool ppuMapRead(uint16_t addr, uint32_t &mapped_addr) override;
+	bool ppuMapWrite(uint16_t addr, uint32_t &mapped_addr) override;
+	void reset() override;
+	MIRROR mirror();
 
-	// Reset mapper to known state
-	virtual void reset() = 0;
+private:
+	uint8_t nCHRBankSelect4Lo = 0x00;
+	uint8_t nCHRBankSelect4Hi = 0x00;
+	uint8_t nCHRBankSelect8 = 0x00;
 
-	// Get Mirror mode if mapper is in control
-	virtual MIRROR mirror();
+	uint8_t nPRGBankSelect16Lo = 0x00;
+	uint8_t nPRGBankSelect16Hi = 0x00;
+	uint8_t nPRGBankSelect32 = 0x00;
 
-	// IRQ Interface
-	virtual bool irqState();
-	virtual void irqClear();
+	uint8_t nLoadRegister = 0x00;
+	uint8_t nLoadRegisterCount = 0x00;
+	uint8_t nControlRegister = 0x00;
 
-	// Scanline Counting
-	virtual void scanline();
+	MIRROR mirrormode = MIRROR::HORIZONTAL;
 
-protected:
-	// These are stored locally as many of the mappers require this information
-	uint8_t nPRGBanks = 0;
-	uint8_t nCHRBanks = 0;
+	std::vector<uint8_t> vRAMStatic;
 };
 

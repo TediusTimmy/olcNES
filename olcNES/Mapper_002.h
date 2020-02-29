@@ -1,5 +1,5 @@
 /*
-	olc::NES - Mapper Base Class (Abstract)
+	olc::NES - Mapper 2
 	"Thanks Dad for believing computers were gonna be a big deal..." - javidx9
 
 	License (OLC-3)
@@ -55,48 +55,21 @@
 */
 
 #pragma once
-#include <cstdint>
-
-enum MIRROR
-{
-	HARDWARE,
-	HORIZONTAL,
-	VERTICAL,
-	ONESCREEN_LO,
-	ONESCREEN_HI,
-};
-
-class Mapper
+#include "Mapper.h"
+class Mapper_002 : public Mapper
 {
 public:
-	Mapper(uint8_t prgBanks, uint8_t chrBanks);
-	~Mapper();
+	Mapper_002(uint8_t prgBanks, uint8_t chrBanks);
+	~Mapper_002();
 
-public:
-	// Transform CPU bus address into PRG ROM offset
-	virtual bool cpuMapRead(uint16_t addr, uint32_t &mapped_addr, uint8_t &data)	 = 0;
-	virtual bool cpuMapWrite(uint16_t addr, uint32_t &mapped_addr, uint8_t data = 0)	 = 0;
-	
-	// Transform PPU bus address into CHR ROM offset
-	virtual bool ppuMapRead(uint16_t addr, uint32_t &mapped_addr)	 = 0;
-	virtual bool ppuMapWrite(uint16_t addr, uint32_t &mapped_addr)	 = 0;
+	bool cpuMapRead(uint16_t addr, uint32_t &mapped_addr, uint8_t &data) override;
+	bool cpuMapWrite(uint16_t addr, uint32_t &mapped_addr, uint8_t data = 0) override;
+	bool ppuMapRead(uint16_t addr, uint32_t &mapped_addr) override;
+	bool ppuMapWrite(uint16_t addr, uint32_t &mapped_addr) override;
+	void reset() override;
 
-	// Reset mapper to known state
-	virtual void reset() = 0;
-
-	// Get Mirror mode if mapper is in control
-	virtual MIRROR mirror();
-
-	// IRQ Interface
-	virtual bool irqState();
-	virtual void irqClear();
-
-	// Scanline Counting
-	virtual void scanline();
-
-protected:
-	// These are stored locally as many of the mappers require this information
-	uint8_t nPRGBanks = 0;
-	uint8_t nCHRBanks = 0;
+private:
+	uint8_t nPRGBankSelectLo = 0x00;
+	uint8_t nPRGBankSelectHi = 0x00;
 };
 

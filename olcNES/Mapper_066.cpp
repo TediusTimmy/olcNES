@@ -1,5 +1,5 @@
 /*
-	olc::NES - Mapper Base Class (Abstract)
+	olc::NES - Mapper 66
 	"Thanks Dad for believing computers were gonna be a big deal..." - javidx9
 
 	License (OLC-3)
@@ -54,49 +54,58 @@
 	David Barr, aka javidx9, ©OneLoneCoder 2019
 */
 
-#pragma once
-#include <cstdint>
+#include "Mapper_066.h"
 
-enum MIRROR
+Mapper_066::Mapper_066(uint8_t prgBanks, uint8_t chrBanks) : Mapper(prgBanks, chrBanks)
 {
-	HARDWARE,
-	HORIZONTAL,
-	VERTICAL,
-	ONESCREEN_LO,
-	ONESCREEN_HI,
-};
+}
 
-class Mapper
+
+Mapper_066::~Mapper_066()
 {
-public:
-	Mapper(uint8_t prgBanks, uint8_t chrBanks);
-	~Mapper();
+}
 
-public:
-	// Transform CPU bus address into PRG ROM offset
-	virtual bool cpuMapRead(uint16_t addr, uint32_t &mapped_addr, uint8_t &data)	 = 0;
-	virtual bool cpuMapWrite(uint16_t addr, uint32_t &mapped_addr, uint8_t data = 0)	 = 0;
+bool Mapper_066::cpuMapRead(uint16_t addr, uint32_t &mapped_addr, uint8_t &data)
+{
+	if (addr >= 0x8000 && addr <= 0xFFFF)
+	{
+		mapped_addr = nPRGBankSelect * 0x8000 + (addr & 0x7FFF);
+		return true;
+	}
+	else
+		return false;
+}
+
+bool Mapper_066::cpuMapWrite(uint16_t addr, uint32_t &mapped_addr, uint8_t data)
+{
+	if (addr >= 0x8000 && addr <= 0xFFFF)
+	{
+		nCHRBankSelect = data & 0x03;
+		nPRGBankSelect = (data & 0x30) >> 4;
+	}
 	
-	// Transform PPU bus address into CHR ROM offset
-	virtual bool ppuMapRead(uint16_t addr, uint32_t &mapped_addr)	 = 0;
-	virtual bool ppuMapWrite(uint16_t addr, uint32_t &mapped_addr)	 = 0;
+	// Mapper has handled write, but do not update ROMs
+	return false;
+}
 
-	// Reset mapper to known state
-	virtual void reset() = 0;
+bool Mapper_066::ppuMapRead(uint16_t addr, uint32_t &mapped_addr)
+{
+	if (addr < 0x2000)
+	{
+		mapped_addr = nCHRBankSelect * 0x2000 + addr;
+		return true;
+	}
+	else
+		return false;
+}
 
-	// Get Mirror mode if mapper is in control
-	virtual MIRROR mirror();
+bool Mapper_066::ppuMapWrite(uint16_t addr, uint32_t &mapped_addr)
+{
+	return false;
+}
 
-	// IRQ Interface
-	virtual bool irqState();
-	virtual void irqClear();
-
-	// Scanline Counting
-	virtual void scanline();
-
-protected:
-	// These are stored locally as many of the mappers require this information
-	uint8_t nPRGBanks = 0;
-	uint8_t nCHRBanks = 0;
-};
-
+void Mapper_066::reset()
+{
+	nCHRBankSelect = 0;
+	nPRGBankSelect = 0;
+}

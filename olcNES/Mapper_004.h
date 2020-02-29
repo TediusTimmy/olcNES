@@ -1,5 +1,5 @@
 /*
-	olc::NES - Mapper Base Class (Abstract)
+	olc::NES - Mapper 4
 	"Thanks Dad for believing computers were gonna be a big deal..." - javidx9
 
 	License (OLC-3)
@@ -55,48 +55,44 @@
 */
 
 #pragma once
-#include <cstdint>
+#include "Mapper.h"
+#include <vector>
 
-enum MIRROR
-{
-	HARDWARE,
-	HORIZONTAL,
-	VERTICAL,
-	ONESCREEN_LO,
-	ONESCREEN_HI,
-};
-
-class Mapper
+class Mapper_004 : public Mapper
 {
 public:
-	Mapper(uint8_t prgBanks, uint8_t chrBanks);
-	~Mapper();
+	Mapper_004(uint8_t prgBanks, uint8_t chrBanks);
+	~Mapper_004();
 
-public:
-	// Transform CPU bus address into PRG ROM offset
-	virtual bool cpuMapRead(uint16_t addr, uint32_t &mapped_addr, uint8_t &data)	 = 0;
-	virtual bool cpuMapWrite(uint16_t addr, uint32_t &mapped_addr, uint8_t data = 0)	 = 0;
-	
-	// Transform PPU bus address into CHR ROM offset
-	virtual bool ppuMapRead(uint16_t addr, uint32_t &mapped_addr)	 = 0;
-	virtual bool ppuMapWrite(uint16_t addr, uint32_t &mapped_addr)	 = 0;
+	bool cpuMapRead(uint16_t addr, uint32_t &mapped_addr, uint8_t &data) override;
+	bool cpuMapWrite(uint16_t addr, uint32_t &mapped_addr, uint8_t data = 0) override;
+	bool ppuMapRead(uint16_t addr, uint32_t &mapped_addr) override;
+	bool ppuMapWrite(uint16_t addr, uint32_t &mapped_addr) override;
+	void reset() override;
 
-	// Reset mapper to known state
-	virtual void reset() = 0;
+	bool irqState() override;
+	void irqClear() override;
 
-	// Get Mirror mode if mapper is in control
-	virtual MIRROR mirror();
+	void scanline() override;
+	MIRROR mirror() override;
 
-	// IRQ Interface
-	virtual bool irqState();
-	virtual void irqClear();
+private:
+	// Control variables
+	uint8_t nTargetRegister = 0x00;
+	bool bPRGBankMode = false;
+	bool bCHRInversion = false;
+	MIRROR mirrormode = MIRROR::HORIZONTAL;
 
-	// Scanline Counting
-	virtual void scanline();
+	uint32_t pRegister[8];
+	uint32_t pCHRBank[8];
+	uint32_t pPRGBank[4];
 
-protected:
-	// These are stored locally as many of the mappers require this information
-	uint8_t nPRGBanks = 0;
-	uint8_t nCHRBanks = 0;
+	bool bIRQActive = false;
+	bool bIRQEnable = false;
+	bool bIRQUpdate = false;
+	uint16_t nIRQCounter = 0x0000;
+	uint16_t nIRQReload = 0x0000;
+
+	std::vector<uint8_t> vRAMStatic;
 };
 

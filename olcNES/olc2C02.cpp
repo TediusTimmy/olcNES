@@ -206,7 +206,7 @@ olc::Sprite& olc2C02::GetPatternTable(uint8_t i, uint8_t palette)
 				{
 					// We can get the index value by simply adding the bits together
 					// but we're only interested in the lsb of the row words because...
-					uint8_t pixel = (tile_lsb & 0x01) << 1 | (tile_msb & 0x01);
+					uint8_t pixel = (tile_msb & 0x01) << 1 | (tile_lsb & 0x01);
 
 					// ...we will shift the row words 1 bit right for each column of
 					// the character.
@@ -447,7 +447,7 @@ uint8_t olc2C02::ppuRead(uint16_t addr, bool rdonly)
 	{
 		addr &= 0x0FFF;
 
-		if (cart->mirror == Cartridge::MIRROR::VERTICAL)
+		if (cart->Mirror() == MIRROR::VERTICAL)
 		{
 			// Vertical
 			if (addr >= 0x0000 && addr <= 0x03FF)
@@ -459,7 +459,7 @@ uint8_t olc2C02::ppuRead(uint16_t addr, bool rdonly)
 			if (addr >= 0x0C00 && addr <= 0x0FFF)
 				data = tblName[1][addr & 0x03FF];
 		}
-		else if (cart->mirror == Cartridge::MIRROR::HORIZONTAL)
+		else if (cart->Mirror() == MIRROR::HORIZONTAL)
 		{
 			// Horizontal
 			if (addr >= 0x0000 && addr <= 0x03FF)
@@ -500,7 +500,7 @@ void olc2C02::ppuWrite(uint16_t addr, uint8_t data)
 	else if (addr >= 0x2000 && addr <= 0x3EFF)
 	{
 		addr &= 0x0FFF;
-		if (cart->mirror == Cartridge::MIRROR::VERTICAL)
+		if (cart->Mirror() == MIRROR::VERTICAL)
 		{
 			// Vertical
 			if (addr >= 0x0000 && addr <= 0x03FF)
@@ -512,7 +512,7 @@ void olc2C02::ppuWrite(uint16_t addr, uint8_t data)
 			if (addr >= 0x0C00 && addr <= 0x0FFF)
 				tblName[1][addr & 0x03FF] = data;
 		}
-		else if (cart->mirror == Cartridge::MIRROR::HORIZONTAL)
+		else if (cart->Mirror() == MIRROR::HORIZONTAL)
 		{
 			// Horizontal
 			if (addr >= 0x0000 && addr <= 0x03FF)
@@ -561,6 +561,8 @@ void olc2C02::reset()
 	control.reg = 0x00;
 	vram_addr.reg = 0x0000;
 	tram_addr.reg = 0x0000;
+	scanline_trigger = false;
+	odd_frame = false;
 }
 
 void olc2C02::clock()
@@ -762,7 +764,7 @@ void olc2C02::clock()
 	{		
 		// Background Rendering ======================================================
 
-		if (scanline == 0 && cycle == 0)
+		if (scanline == 0 && cycle == 0 && odd_frame && (mask.render_background || mask.render_sprites))
 		{
 			// "Odd Frame" cycle skip
 			cycle = 1;
@@ -1027,7 +1029,7 @@ void olc2C02::clock()
 				// depending on the current "sprite height mode"
 				// FLAGGED
 				
-				if (diff >= 0 && diff < (control.sprite_size ? 16 : 8))
+				if (diff >= 0 && diff < (control.sprite_size ? 16 : 8) && sprite_count < 8)
 				{
 					// Sprite is visible, so copy the attribute entry over to our
 					// scanline sprite cache. Ive added < 8 here to guard the array
@@ -1042,16 +1044,15 @@ void olc2C02::clock()
 							bSpriteZeroHitPossible = true;
 						}
 
-						memcpy(&spriteScanline[sprite_count], &OAM[nOAMEntry], sizeof(sObjectAttributeEntry));
-						sprite_count++;
-					}				
+						memcpy(&spriteScanline[sprite_count], &OAM[nOAMEntry], sizeof(sObjectAttributeEntry));						
+					}			
+					sprite_count++;
 				}
-
 				nOAMEntry++;
 			} // End of sprite evaluation for next scanline
 
 			// Set sprite overflow flag
-			status.sprite_overflow = (sprite_count > 8);
+			status.sprite_overflow = (sprite_count >= 8);
 
 			// Now we have an array of the 8 visible sprites for the next scanline. By 
 			// the nature of this search, they are also ranked in priority, because
@@ -1224,24 +1225,27 @@ void olc2C02::clock()
 	// the current background colour in effect
 	if (mask.render_background)
 	{
-		// Handle Pixel Selection by selecting the relevant bit
-		// depending upon fine x scolling. This has the effect of
-		// offsetting ALL background rendering by a set number
-		// of pixels, permitting smooth scrolling
-		uint16_t bit_mux = 0x8000 >> fine_x;
+		if (mask.render_background_left || (cycle >= 9))
+		{
+			// Handle Pixel Selection by selecting the relevant bit
+			// depending upon fine x scolling. This has the effect of
+			// offsetting ALL background rendering by a set number
+			// of pixels, permitting smooth scrolling
+			uint16_t bit_mux = 0x8000 >> fine_x;
 
-		// Select Plane pixels by extracting from the shifter 
-		// at the required location. 
-		uint8_t p0_pixel = (bg_shifter_pattern_lo & bit_mux) > 0;
-		uint8_t p1_pixel = (bg_shifter_pattern_hi & bit_mux) > 0;
+			// Select Plane pixels by extracting from the shifter 
+			// at the required location. 
+			uint8_t p0_pixel = (bg_shifter_pattern_lo & bit_mux) > 0;
+			uint8_t p1_pixel = (bg_shifter_pattern_hi & bit_mux) > 0;
 
-		// Combine to form pixel index
-		bg_pixel = (p1_pixel << 1) | p0_pixel;
+			// Combine to form pixel index
+			bg_pixel = (p1_pixel << 1) | p0_pixel;
 
-		// Get palette
-		uint8_t bg_pal0 = (bg_shifter_attrib_lo & bit_mux) > 0;
-		uint8_t bg_pal1 = (bg_shifter_attrib_hi & bit_mux) > 0;
-		bg_palette = (bg_pal1 << 1) | bg_pal0;
+			// Get palette
+			uint8_t bg_pal0 = (bg_shifter_attrib_lo & bit_mux) > 0;
+			uint8_t bg_pal1 = (bg_shifter_attrib_hi & bit_mux) > 0;
+			bg_palette = (bg_pal1 << 1) | bg_pal0;
+		}
 	}
 
 	// Foreground =============================================================
@@ -1254,41 +1258,44 @@ void olc2C02::clock()
 		// Iterate through all sprites for this scanline. This is to maintain
 		// sprite priority. As soon as we find a non transparent pixel of
 		// a sprite we can abort
-
-		bSpriteZeroBeingRendered = false;
-
-		for (uint8_t i = 0; i < sprite_count; i++)
+		if (mask.render_sprites_left || (cycle >= 9))
 		{
-			// Scanline cycle has "collided" with sprite, shifters taking over
-			if (spriteScanline[i].x == 0) 
+
+			bSpriteZeroBeingRendered = false;
+
+			for (uint8_t i = 0; i < sprite_count; i++)
 			{
-				// Note Fine X scrolling does not apply to sprites, the game
-				// should maintain their relationship with the background. So
-				// we'll just use the MSB of the shifter
-				
-				// Determine the pixel value...
-				uint8_t fg_pixel_lo = (sprite_shifter_pattern_lo[i] & 0x80) > 0;
-				uint8_t fg_pixel_hi = (sprite_shifter_pattern_hi[i] & 0x80) > 0;
-				fg_pixel = (fg_pixel_hi << 1) | fg_pixel_lo;
-
-				// Extract the palette from the bottom two bits. Recall
-				// that foreground palettes are the latter 4 in the 
-				// palette memory.
-				fg_palette = (spriteScanline[i].attribute & 0x03) + 0x04;
-				fg_priority = (spriteScanline[i].attribute & 0x20) == 0;
-
-				// If pixel is not transparent, we render it, and dont
-				// bother checking the rest because the earlier sprites
-				// in the list are higher priority
-				if (fg_pixel != 0)
+				// Scanline cycle has "collided" with sprite, shifters taking over
+				if (spriteScanline[i].x == 0)
 				{
-					if (i == 0) // Is this sprite zero?
-					{
-						bSpriteZeroBeingRendered = true;
-					}
+					// Note Fine X scrolling does not apply to sprites, the game
+					// should maintain their relationship with the background. So
+					// we'll just use the MSB of the shifter
 
-					break;
-				}				
+					// Determine the pixel value...
+					uint8_t fg_pixel_lo = (sprite_shifter_pattern_lo[i] & 0x80) > 0;
+					uint8_t fg_pixel_hi = (sprite_shifter_pattern_hi[i] & 0x80) > 0;
+					fg_pixel = (fg_pixel_hi << 1) | fg_pixel_lo;
+
+					// Extract the palette from the bottom two bits. Recall
+					// that foreground palettes are the latter 4 in the 
+					// palette memory.
+					fg_palette = (spriteScanline[i].attribute & 0x03) + 0x04;
+					fg_priority = (spriteScanline[i].attribute & 0x20) == 0;
+
+					// If pixel is not transparent, we render it, and dont
+					// bother checking the rest because the earlier sprites
+					// in the list are higher priority
+					if (fg_pixel != 0)
+					{
+						if (i == 0) // Is this sprite zero?
+						{
+							bSpriteZeroBeingRendered = true;
+						}
+
+						break;
+					}
+				}
 			}
 		}		
 	}
@@ -1353,7 +1360,7 @@ void olc2C02::clock()
 				// The left edge of the screen has specific switches to control
 				// its appearance. This is used to smooth inconsistencies when
 				// scrolling (since sprites x coord must be >= 0)
-				if (~(mask.render_background_left | mask.render_sprites_left))
+				if (!(mask.render_background_left | mask.render_sprites_left))
 				{
 					if (cycle >= 9 && cycle < 258)
 					{
@@ -1377,6 +1384,14 @@ void olc2C02::clock()
 
 	// Advance renderer - it never stops, it's relentless
 	cycle++;
+	if(mask.render_background || mask.render_sprites)
+		if (cycle == 260 && scanline < 240)
+		{
+			cart->GetMapper()->scanline();
+		}
+
+	
+
 	if (cycle >= 341)
 	{
 		cycle = 0;
@@ -1385,6 +1400,7 @@ void olc2C02::clock()
 		{
 			scanline = -1;
 			frame_complete = true;
+			odd_frame = !odd_frame;
 		}
 	}
 }
